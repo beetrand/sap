@@ -33,7 +33,7 @@ export function createApp(store: Store) {
           imgSrc: ["'self'", "data:"],
           styleSrc: ["'self'"],
           scriptSrc: ["'self'"],
-          // Phase 1 exposes the ALB over HTTP because it has no custom domain or ACM certificate yet.
+          // Phase 3もScaling観察を優先してALBをHTTP公開し、機密Dataは扱わない。
           // Helmet enables this directive by default, which would rewrite relative assets to HTTPS.
           upgradeInsecureRequests: null,
         },
@@ -46,7 +46,9 @@ export function createApp(store: Store) {
     const requestId = request.header("x-request-id") ?? randomUUID();
     response.setHeader("x-request-id", requestId);
     response.on("finish", () => {
-      if (request.path !== "/healthz") {
+      // ALBとDockerが定期実行するlivenessは大量になるため、通常のAccess Logから除外する。
+      // RDS依存を確認する/readyzは障害調査に必要なのでLogへ残す。
+      if (request.path !== "/livez") {
         console.log(
           JSON.stringify({
             level: "info",
@@ -63,12 +65,20 @@ export function createApp(store: Store) {
     next();
   });
 
-  app.get("/healthz", async (_request, response) => {
+  // ProcessがHTTP Requestを処理できることだけを確認するliveness。
+  // RDS障害を理由に正常なECS Taskを作り直さないよう、外部依存へ接続しない。
+  app.get("/livez", (_request, response) => {
+    response.json({ status: "ok" });
+  });
+
+  // ApplicationがRDSを使ったRequestを処理できることを確認するreadiness。
+  // ALBのTask置換判定には使わず、依存先障害の監視と切り分けに利用する。
+  app.get("/readyz", async (_request, response) => {
     try {
       await store.healthCheck();
-      response.json({ status: "ok" });
+      response.json({ status: "ready" });
     } catch {
-      response.status(503).json({ status: "unhealthy" });
+      response.status(503).json({ status: "not_ready" });
     }
   });
 

@@ -1,4 +1,4 @@
-# このVPCがPhase 1環境全体のネットワーク境界となる。
+# このVPCがPhase 3環境全体のネットワーク境界となる。
 resource "aws_vpc" "main" {
   # /16を確保し、用途別サブネットへ十分に分割できるようにする。
   cidr_block = "10.20.0.0/16"
@@ -94,7 +94,7 @@ resource "aws_eip" "nat" {
 }
 
 # PrivateなApp Subnetから外向き通信を行うためのNAT Gateway。
-# Phase 1では費用を抑えるため1AZだけに置くので、単一障害点である。
+# Scaling実験の費用を抑えるため1AZだけに置くので、単一障害点である。
 resource "aws_nat_gateway" "main" {
   allocation_id = aws_eip.nat.id
   # 先頭AZのPublic Subnetへ配置する。Phase 2ではAZごとのNATも比較対象になる。

@@ -12,7 +12,7 @@ resource "aws_ecr_repository" "app" {
   }
 
   encryption_configuration {
-    # ECR保存時暗号化。Phase 1はAWS管理のAES-256を使用する。
+    # ECR保存時暗号化。短期LabはAWS管理のAES-256を使用する。
     encryption_type = "AES256"
   }
 }

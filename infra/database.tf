@@ -1,5 +1,5 @@
 # RDSがネットワークインターフェースを配置できるDatabase Subnetの集合。
-# 2AZを登録することはRDSの要件だが、Phase 1のDB自体はSingle-AZである。
+# 2AZを登録することはRDSの要件だが、Phase 3のDB自体はSingle-AZである。
 resource "aws_db_subnet_group" "main" {
   name       = local.name
   subnet_ids = [for subnet in aws_subnet.database : subnet.id]
@@ -51,7 +51,7 @@ resource "aws_db_instance" "main" {
   vpc_security_group_ids = [aws_security_group.database.id]
   # Public IPを持たせず、インターネットから直接接続できないようにする。
   publicly_accessible = false
-  # Phase 1は障害を観察するためSingle-AZ。Phase 2でMulti-AZとの差を比較する。
+  # ECS Scaling時の下流Bottleneckへ焦点を絞るため、今回はSingle-AZのまま比較する。
   multi_az = false
 
   # 自動バックアップを1日だけ保持する。短期学習環境なので保持期間を抑える。
@@ -66,7 +66,7 @@ resource "aws_db_instance" "main" {
   # 学習中の変更反映を待たせない設定。本番では保守時間帯の利用も検討する。
   apply_immediately = true
 
-  # Phase 1では追加料金を避けるためPerformance Insightsを無効化する。
+  # 短期Labでは追加料金を避けるためPerformance Insightsを無効化する。
   performance_insights_enabled = false
   # パッチレベルの自動更新は有効にして既知脆弱性の放置を避ける。
   auto_minor_version_upgrade = true

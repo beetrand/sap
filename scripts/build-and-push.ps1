@@ -1,6 +1,6 @@
 param(
     # Terraform outputのecr_repository_urlを渡す。
-    # 例: <account>.dkr.ecr.ap-northeast-1.amazonaws.com/sap-commerce-lab-phase1
+    # 例: <account>.dkr.ecr.ap-northeast-1.amazonaws.com/sap-commerce-lab-phase3
     [Parameter(Mandatory = $true)]
     [ValidateNotNullOrEmpty()]
     [string]$EcrRepositoryUrl,
@@ -8,7 +8,7 @@ param(
     # 同じ内容を識別する不変タグ。ECR側でタグ上書きは禁止している。
     [Parameter(Mandatory = $false)]
     [ValidatePattern('^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$')]
-    [string]$ImageTag = 'phase1-v1',
+    [string]$ImageTag = 'phase3-v1',
 
     # この学習環境は誤操作防止のため東京リージョンだけを許可する。
     [Parameter(Mandatory = $false)]
@@ -67,7 +67,7 @@ $registry = ($EcrRepositoryUrl -split '/')[0]
 
 # 東京リージョンの正式なECR registry形式以外は拒否する。
 if ($registry -notmatch '^\d{12}\.dkr\.ecr\.ap-northeast-1\.amazonaws\.com$') {
-    throw "Unexpected ECR registry for the Phase 1 Tokyo lab: $registry"
+    throw "Unexpected ECR registry for the Phase 3 Tokyo lab: $registry"
 }
 
 # profile設定に記録されたアカウントとリージョンを取得する。

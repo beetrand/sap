@@ -1,7 +1,7 @@
 # ALBに付けるSecurity Group。ルール本体は下の独立リソースで定義する。
 resource "aws_security_group" "alb" {
   name        = "${local.name}-alb"
-  description = "Public HTTP entry point for the Phase 1 ALB"
+  description = "Public HTTP entry point for the Phase 3 ALB"
   vpc_id      = aws_vpc.main.id
 
   tags = { Name = "${local.name}-alb" }
@@ -28,10 +28,10 @@ resource "aws_security_group" "database" {
 }
 
 # 利用者のブラウザからALBへのHTTP通信を許可する入口。
-# Phase 1は独自ドメインとACM証明書がないためHTTPだが、機密データは扱わない。
+# Phase 3は独自ドメインとACM証明書がないためHTTPだが、機密データは扱わない。
 resource "aws_vpc_security_group_ingress_rule" "alb_http" {
   security_group_id = aws_security_group.alb.id
-  description       = "Temporary public HTTP entry point for non-sensitive Phase 1 data"
+  description       = "Temporary public HTTP entry point for non-sensitive Phase 3 data"
   cidr_ipv4         = "0.0.0.0/0"
   from_port         = 80
   to_port           = 80

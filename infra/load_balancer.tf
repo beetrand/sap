@@ -32,9 +32,9 @@ resource "aws_lb_target_group" "app" {
   deregistration_delay = 30
 
   health_check {
-    # ALBが定期的にアプリとDBの生存確認を行うエンドポイント。
+    # Node.js Processだけを確認するliveness。RDS接続は/readyzへ分離する。
     enabled  = true
-    path     = "/healthz"
+    path     = "/livez"
     protocol = "HTTP"
     port     = "traffic-port"
     # HTTP 200だけを正常と判定する。
@@ -50,7 +50,7 @@ resource "aws_lb_target_group" "app" {
 }
 
 # ALBの80/TCPで待ち受け、受信した全リクエストをECSターゲットへ送るListener。
-# Phase 1はHTTPのみ。将来はACM証明書を使うHTTPS Listenerへ変更する。
+# Phase 3はHTTPのみ。Security PhaseではACM証明書を使うHTTPS Listenerへ変更する。
 resource "aws_lb_listener" "http" {
   load_balancer_arn = aws_lb.main.arn
   port              = 80

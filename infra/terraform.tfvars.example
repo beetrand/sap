@@ -1,12 +1,18 @@
-# Phase 1 is intentionally restricted to Tokyo.
+# Phase 3 is intentionally restricted to Tokyo.
 aws_region  = "ap-northeast-1"
-environment = "phase1"
+environment = "phase3"
 
 # Do not store the account ID in this file. Before plan/apply, set
 # TF_VAR_allowed_account_id from the trusted sap-lab SSO profile.
 
-# First apply: false. After pushing phase1-v1 to ECR, change this to true.
+# First apply: false. After pushing phase3-v1 to ECR, change this to true.
 deploy_service = false
-image_tag      = "phase1-v1"
+image_tag      = "phase3-v1"
+
+# First measure fixed capacity with false. Apply true only after saving that baseline.
+enable_autoscaling     = false
+ecs_min_capacity       = 2
+ecs_max_capacity       = 6
+alb_requests_per_target = 300
 
 database_instance_class = "db.t4g.micro"

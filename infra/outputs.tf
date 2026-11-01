@@ -24,7 +24,7 @@ output "ecr_repository_url" {
 
 # ブラウザで開くALBの一時HTTP URL。
 output "application_url" {
-  description = "Temporary HTTP URL for the non-sensitive Phase 1 lab."
+  description = "Temporary HTTP URL for the non-sensitive Phase 3 lab."
   value       = "http://${aws_lb.main.dns_name}"
 }
 
@@ -32,6 +32,27 @@ output "application_url" {
 output "ecs_service_deployed" {
   description = "Whether the ECS service is part of this apply."
   value       = var.deploy_service
+}
+
+# 固定CapacityとAuto Scalingのどちらを現在deployしているか確認する。
+output "autoscaling_enabled" {
+  description = "Whether ECS Service Auto Scaling resources are enabled."
+  value       = var.deploy_service && var.enable_autoscaling
+}
+
+# 実験前にTask数のHard Limitを確認するための値。
+output "ecs_capacity_range" {
+  description = "Minimum and maximum ECS task counts allowed by the Phase 3 experiment."
+  value = {
+    min = var.ecs_min_capacity
+    max = var.ecs_max_capacity
+  }
+}
+
+# Service作成時だけ存在するCloudWatch Dashboard名。
+output "scaling_dashboard_name" {
+  description = "CloudWatch dashboard used during the scaling experiment, or null before service deployment."
+  value       = var.deploy_service ? aws_cloudwatch_dashboard.scaling[0].dashboard_name : null
 }
 
 # ECSからだけ到達できるRDSのPrivate endpointとport。

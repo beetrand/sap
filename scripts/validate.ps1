@@ -17,7 +17,7 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'Type check failed.' }
 
     if (-not $SkipDocker) {
-        docker build --pull --tag sap-commerce-lab:phase1-local .
+        docker build --pull --tag sap-commerce-lab:phase3-local .
         if ($LASTEXITCODE -ne 0) { throw 'Docker build failed.' }
     }
 

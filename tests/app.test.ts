@@ -37,11 +37,24 @@ describe("EC API", () => {
       .expect(404);
   });
 
-  it("reports health", async () => {
-    await request(createApp(new MemoryStore())).get("/healthz").expect(200, { status: "ok" });
+  it("separates process liveness from database readiness", async () => {
+    class UnavailableStore extends MemoryStore {
+      override async healthCheck(): Promise<void> {
+        throw new Error("database unavailable");
+      }
+    }
+
+    const app = createApp(new UnavailableStore());
+
+    await request(app).get("/livez").expect(200, { status: "ok" });
+    await request(app).get("/readyz").expect(503, { status: "not_ready" });
   });
 
-  it("does not force HTTP assets to HTTPS in the Phase 1 environment", async () => {
+  it("reports readiness when the database dependency is available", async () => {
+    await request(createApp(new MemoryStore())).get("/readyz").expect(200, { status: "ready" });
+  });
+
+  it("does not force HTTP assets to HTTPS in the temporary lab environment", async () => {
     const response = await request(createApp(new MemoryStore())).get("/").expect(200);
 
     expect(response.headers["content-security-policy"]).not.toContain("upgrade-insecure-requests");

@@ -53,9 +53,10 @@ USER node
 # ドキュメントとしてアプリの待受ポートを示す。これだけでは外部公開されない。
 EXPOSE 3000
 
-# コンテナ内部から/healthzを確認する。失敗が続くとECSがタスクを異常と判断する。
+# コンテナ内部から/livezを確認する。RDSへ接続せずNode.js Processだけを見るため、
+# DB障害を理由に正常なコンテナを再起動し続けることを避ける。
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
-  CMD node -e "fetch('http://127.0.0.1:3000/healthz').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"
+  CMD node -e "fetch('http://127.0.0.1:3000/livez').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"
 
 # コンテナ起動時に、コンパイル済みのNode.jsサーバーをPID 1として実行する。
 CMD ["node", "dist/server.js"]

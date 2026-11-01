@@ -9,7 +9,7 @@ const yen = new Intl.NumberFormat("ja-JP", { style: "currency", currency: "JPY" 
 const dateTime = new Intl.DateTimeFormat("ja-JP", { dateStyle: "medium", timeStyle: "short" });
 
 function createCustomerId() {
-  // randomUUID() requires a secure context, while getRandomValues() also works on the HTTP-only Phase 1 ALB.
+  // randomUUID() requires a secure context, while getRandomValues() also works on the temporary HTTP-only ALB.
   const bytes = new Uint8Array(16);
   crypto.getRandomValues(bytes);
   return `guest-${Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("")}`;

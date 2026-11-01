@@ -4,7 +4,7 @@ resource "aws_ecs_cluster" "main" {
   name = local.name
 
   setting {
-    # Phase 1は追加のContainer Insights料金を避け、標準メトリクスで観察する。
+    # Phase 3も追加のContainer Insights料金を避け、Service標準メトリクスで比較する。
     name  = "containerInsights"
     value = "disabled"
   }
@@ -86,7 +86,7 @@ resource "aws_ecs_task_definition" "app" {
   requires_compatibilities = ["FARGATE"]
   # タスクごとにENIとPrivate IPを持つFargate必須のネットワークモード。
   network_mode = "awsvpc"
-  # Phase 1の最小構成: 0.25 vCPU、512 MiB。
+  # Phase 1と同じ0.25 vCPU、512 MiBを使い、Task数の違いだけを比較する。
   cpu                = "256"
   memory             = "512"
   execution_role_arn = aws_iam_role.ecs_execution.arn
@@ -146,10 +146,10 @@ resource "aws_ecs_task_definition" "app" {
       }
     ]
 
-    # ECSがコンテナ内部からアプリとDB接続の健全性を確認する。
-    # ALB health checkとは観測主体が異なる二段階のチェック。
+    # ECSがコンテナ内部からNode.js Processのlivenessだけを確認する。
+    # RDS障害は/readyzで別に観察し、正常なTaskを無意味に置換しない。
     healthCheck = {
-      command     = ["CMD-SHELL", "node -e \"fetch('http://127.0.0.1:3000/healthz').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))\""]
+      command     = ["CMD-SHELL", "node -e \"fetch('http://127.0.0.1:3000/livez').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))\""]
       interval    = 30
       timeout     = 5
       retries     = 3
@@ -184,10 +184,12 @@ resource "aws_ecs_service" "app" {
   name            = local.name
   cluster         = aws_ecs_cluster.main.id
   task_definition = aws_ecs_task_definition.app.arn
-  # Phase 1は1タスク。停止時にサービス断となるため、Phase 2で複数化する。
-  desired_count    = 1
+  # 固定Capacity実験は2 Taskから開始し、Auto Scaling有効時もScale-in下限にする。
+  desired_count    = var.ecs_min_capacity
   launch_type      = "FARGATE"
   platform_version = "LATEST"
+  # Schedulerに2つのApp Subnet間の偏りを検知・是正させる。
+  availability_zone_rebalancing = "ENABLED"
   # 更新中も旧タスクを100%残し、最大200%まで新旧を同時起動できる。
   deployment_minimum_healthy_percent = 100
   deployment_maximum_percent         = 200
@@ -195,8 +197,19 @@ resource "aws_ecs_service" "app" {
   health_check_grace_period_seconds = 90
   # terraform applyがServiceの安定状態まで待つ。失敗をapply時に検知しやすい。
   wait_for_steady_state = true
-  # Phase 1ではECS Execを無効化し、不要な管理経路を持たせない。
+  # Phase 3でもECS Execを無効化し、負荷試験に不要な管理経路を持たせない。
   enable_execute_command = false
+
+  lifecycle {
+    # Auto Scalingが変更したDesired Countを、次回planで最小値へ戻さない。
+    # 固定Capacity実験では作成時のecs_min_capacityから手動変更しない。
+    ignore_changes = [desired_count]
+
+    precondition {
+      condition     = var.ecs_min_capacity <= var.ecs_max_capacity
+      error_message = "ecs_min_capacity must not exceed ecs_max_capacity."
+    }
+  }
 
   network_configuration {
     # 2AZのApp Private Subnetからタスク配置先が選ばれる。
