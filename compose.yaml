@@ -1,0 +1,38 @@
+services:
+  database:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: sapcommerce
+      POSTGRES_USER: sapadmin
+      POSTGRES_PASSWORD: local-development-only
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sapadmin -d sapcommerce"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+
+  app:
+    build: .
+    environment:
+      PORT: "3000"
+      DATABASE_HOST: database
+      DATABASE_PORT: "5432"
+      DATABASE_NAME: sapcommerce
+      DATABASE_USER: sapadmin
+      DATABASE_PASSWORD: local-development-only
+      DATABASE_SSL: "false"
+      DATABASE_POOL_SIZE: "5"
+    depends_on:
+      database:
+        condition: service_healthy
+    ports:
+      - "3000:3000"
+    read_only: true
+    tmpfs:
+      - /tmp
+    init: true
+
+volumes:
+  postgres-data:

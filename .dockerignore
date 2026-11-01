@@ -1,0 +1,14 @@
+# ローカルの依存関係はLinux用イメージへコピーせず、コンテナ内でnpm ciする。
+node_modules
+
+# ローカル生成物は使わず、Docker build内で再コンパイルする。
+dist
+
+# Git履歴、Terraform、資料、テストは実行用イメージの材料ではない。
+.git
+.terraform
+*.tfstate*
+npm-debug.log
+docs
+infra
+tests

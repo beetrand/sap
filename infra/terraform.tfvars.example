@@ -1,0 +1,12 @@
+# Phase 1 is intentionally restricted to Tokyo.
+aws_region  = "ap-northeast-1"
+environment = "phase1"
+
+# Do not store the account ID in this file. Before plan/apply, set
+# TF_VAR_allowed_account_id from the trusted sap-lab SSO profile.
+
+# First apply: false. After pushing phase1-v1 to ECR, change this to true.
+deploy_service = false
+image_tag      = "phase1-v1"
+
+database_instance_class = "db.t4g.micro"
