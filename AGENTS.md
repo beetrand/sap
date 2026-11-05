@@ -31,6 +31,16 @@ AWS Solutions Architect Professional（SAP）レベルで求められる、要�
 
 ## 3. 開発対象
 
+このRepositoryは、AWS構成の異なるLabを次の兄弟Directoryに分ける。
+
+```text
+sap/
+├─ commerce-lab/   ECS / ALB / RDSを使った従来のECサイト
+└─ ticketing-lab/  Lambda / API Gateway / Auroraを使う指定席予約サイト
+```
+
+Application、Terraform、Test、Scriptは各Lab内で完結させる。Repository直下へ特定Lab専用の`src`、`infra`、`scripts`などを置かない。互換性維持のための旧Pathは残さず、README、Script、Obsidianの手順も現在のPathへ揃える。
+
 学習用の簡単なECサイトを開発してください。
 
 初期機能は以下を想定します。
@@ -129,6 +139,7 @@ IAM、WAF、Secrets Manager、暗号化、監査ログなどを導入する。
 ## 7. 実装方針
 
 - Terraformは読みやすく、適切にモジュール化する。
+- Terraform、Application、SQL、Script、Testには、初心者が処理の目的と流れを追える日本語Commentを書く。Resourceや関数の直前で「何のためか」「いつ実行されるか」「何と接続するか」を説明し、複雑な参照式・権限・Transaction・失敗時処理には理由を添える。Codeをそのまま日本語へ読み替えるだけのCommentや、全行を埋める過剰なCommentにはしない。
 - 各リソースの設計意図をドキュメントに残す。
 - Terraformの実装と設計資料を一致させる。
 - アーキテクチャ図はMermaidなどで作成する。

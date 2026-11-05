@@ -1,3 +1,6 @@
+# apply後に人やScriptが必要とするURL・ARN・確認値を表示するFile。
+# PasswordなどSecretの中身はOutputしない。
+
 output "aws_account_id" {
   description = "Providerが接続したAWSアカウント。apply前の確認用。"
   value       = data.aws_caller_identity.current.account_id
@@ -21,7 +24,8 @@ output "database_cluster_arn" {
 output "database_secret_arn" {
   description = "RDS管理のMaster User Secret ARN。"
   value       = aws_rds_cluster.main.master_user_secret[0].secret_arn
-  sensitive   = true
+  # ARNも通常のConsole出力へ不用意に出さないようsensitive扱いにする。
+  sensitive = true
 }
 
 output "database_name" {
@@ -33,6 +37,7 @@ output "cloudwatch_dashboard" {
 }
 
 output "cost_controls" {
+  description = "費用Guardが意図どおり設定されたかまとめて確認する値。"
   value = {
     aurora_min_acu           = 0
     aurora_max_acu           = var.aurora_max_acu

@@ -59,6 +59,14 @@ terraform -chdir=infra validate
 .\scripts\validate.ps1
 ```
 
+APIをAWSへdeployする前に、Mock Dataで画面だけを確認できます。
+
+```powershell
+node .\scripts\preview-ui.mjs
+```
+
+ブラウザで`http://127.0.0.1:4173`を開きます。座席選択と模擬予約も操作できます。
+
 ## デプロイの境界
 
 ここにあるTerraformはAWSリソースを作成します。`terraform apply`は自動実行しません。

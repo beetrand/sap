@@ -1,8 +1,16 @@
-# 実際に利用するAWSアカウントIDへ置き換える。
+# このFileをterraform.tfvarsへCopyして使う。
+# terraform.tfvarsはGit対象外なので実Account IDをCommitしない。
+
+# 実際のAccount IDへ置き換える。Providerの誤Account Guardに使う。
 allowed_account_id = "123456789012"
 
+# 原則として東京Regionを使う。
 aws_region            = "ap-northeast-1"
+# Resource名とTagの接頭辞。
 project_name          = "sap-ticketing"
+# 本番ではなく学習環境であることを名前へ含める。
 environment           = "lab"
+# 0 ACU Auto-pause対応Versionをapply前に東京Regionで確認する。
 aurora_engine_version = "16.6"
+# 費用Guard。変更時もvariables.tfにより4 ACU以下へ制限される。
 aurora_max_acu        = 2

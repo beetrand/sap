@@ -1,8 +1,11 @@
+# API、Lambda、Auroraを同じ時間軸で比較するCloudWatch Dashboard。
+# どこが遅いかを推測せず、各LayerのMetricで切り分ける。
 resource "aws_cloudwatch_dashboard" "main" {
   dashboard_name = "${local.name}-overview"
 
   dashboard_body = jsonencode({
     widgets = [
+      # 入口のRequest数と、API GatewayからLambda完了までのp95 Latency。
       {
         type   = "metric"
         x      = 0
@@ -18,6 +21,7 @@ resource "aws_cloudwatch_dashboard" "main" {
           ]
         }
       },
+      # Application処理時間、Error数、同時実行数を見るWidget。
       {
         type   = "metric"
         x      = 12
@@ -34,6 +38,7 @@ resource "aws_cloudwatch_dashboard" "main" {
           ]
         }
       },
+      # DBの使用ACUとConnection数。Auto-pause時はCapacityが0になる。
       {
         type   = "metric"
         x      = 0

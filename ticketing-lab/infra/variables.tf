@@ -1,3 +1,6 @@
+# 環境ごとに変更できる入力値をまとめるFile。
+# Default値がないallowed_account_idだけは安全のため必須入力になる。
+
 variable "aws_region" {
   description = "学習環境を作るAWSリージョン。"
   type        = string
@@ -9,6 +12,7 @@ variable "allowed_account_id" {
   type        = string
 
   validation {
+    # AWS Account IDは12桁なので、入力Mistakeをplan前に検出する。
     condition     = can(regex("^[0-9]{12}$", var.allowed_account_id))
     error_message = "allowed_account_idには12桁のAWS Account IDを指定してください。"
   }
@@ -44,6 +48,7 @@ variable "aurora_max_acu" {
   default     = 2
 
   validation {
+    # 設定MistakeでAuroraが高Capacityへ拡大しないよう範囲を制限する。
     condition     = var.aurora_max_acu >= 0.5 && var.aurora_max_acu <= 4
     error_message = "ラボではaurora_max_acuを0.5以上4以下に制限します。"
   }
