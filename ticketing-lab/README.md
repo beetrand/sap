@@ -2,7 +2,7 @@
 
 人気イベントの指定席予約を題材に、同時実行、冪等性、非同期処理、補償処理を段階的に学ぶためのAWSラボです。
 
-このディレクトリは既存のCommerce Labとは独立しています。現時点ではローカル実装済みであり、AWSへは未デプロイです。
+このディレクトリは既存のCommerce Labとは独立しています。2026-11-05時点でAWSへデプロイし、画面表示、API、予約Transaction、DB反映まで確認済みです。
 
 ## 今回の最小構成
 
@@ -24,7 +24,8 @@ flowchart LR
 - Auroraは`MinCapacity = 0`、無通信5分でauto-pauseする。
 - SQLの確認はRDS Query Editorを利用する。
 - 予約作成とOutbox追加を1トランザクションで行う。
-- 想定外の費用を抑えるため、APIは10 request/秒、Lambdaは同時実行10に制限する。
+- 想定外の費用を抑えるため、APIは10 request/秒・Burst 20、Auroraは最大2 ACUに制限する。
+- Sandbox AccountのQuotaでは最低10の未予約Lambda枠を残せないため、Lambda Reserved Concurrencyは設定しない。
 
 ## できること
 
@@ -69,9 +70,15 @@ node .\scripts\preview-ui.mjs
 
 ## デプロイの境界
 
-ここにあるTerraformはAWSリソースを作成します。`terraform apply`は自動実行しません。
+ここにあるTerraformはAWSリソースを作成します。追加変更時も`terraform apply`は自動実行しません。
 
-デプロイする場合は、最初に`infra/terraform.tfvars.example`を`infra/terraform.tfvars`へコピーし、対象AWSアカウントIDを設定します。その後、planを確認してからユーザーがapplyします。
+対象AWSアカウントIDは、Sourceへ保存せず環境変数で渡せます。その後、planを確認してからユーザーがapplyします。
+
+```powershell
+$env:TF_VAR_allowed_account_id = "<学習用AWSアカウントID>"
+terraform -chdir=infra plan "-out=ticketing.tfplan"
+terraform -chdir=infra apply .\ticketing.tfplan
+```
 
 DBテーブルはapply後に次で初期化します。このスクリプトもDBを変更するため、自動実行しません。
 

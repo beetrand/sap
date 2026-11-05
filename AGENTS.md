@@ -196,11 +196,20 @@ Phase 1を実装する前に、次を含む基準構成案を提示してくだ�
 
 ## 9. Obsidian学習ノートの構成と運用
 
-このプロジェクトで行ったことと学んだことは、次のObsidianフォルダへ継続的に整理してください。
+このRepositoryには独立した2つのLabがあるため、行ったことと学んだことは、対象Labに対応するObsidianフォルダへ整理してください。
 
 ```text
-C:\Users\roses\iCloudDrive\iCloud~md~obsidian\idata\study\aws\AWS-SAP-ECサイト実践
+commerce-lab
+└─ C:\Users\roses\iCloudDrive\iCloud~md~obsidian\idata\study\aws\AWS-SAP-ECサイト実践
+
+ticketing-lab
+└─ C:\Users\roses\iCloudDrive\iCloud~md~obsidian\idata\study\aws\AWS-SAP-チケット予約実践
 ```
+
+- `AWS-SAP-ECサイト実践`はECS、ALB、RDS、Auto Scalingを扱うECサイト専用とする。
+- `AWS-SAP-チケット予約実践`はLambda、API Gateway、Aurora、同時予約、冪等性、Outbox、Sagaを扱うチケット予約専用とする。
+- 一方のLabのノートを、もう一方のPhaseや学習記録へ混在させない。
+- Repository共通の話題であっても、観察対象となったLab側へ記録し、必要なら相互Linkを張る。
 
 ### Obsidianをドキュメントの正本にする
 
@@ -209,7 +218,7 @@ C:\Users\roses\iCloudDrive\iCloud~md~obsidian\idata\study\aws\AWS-SAP-ECサイ�
 - リポジトリ内には、コード実行に密接なREADMEや既存の運用ファイルを残してよい。ただし学習内容の正本として扱わず、同じ内容を二重管理しない。
 - ノート名は、各Phase内で読む順番が分かる番号と日本語名を原則とする。量が増えた場合は、`10 教科書`など既存区分の下にテーマ別サブフォルダを作ってよい。
 
-### Phaseを最上位の単位にする
+### ECサイト実践ではPhaseを最上位の単位にする
 
 ノートは、まずPhaseごとにフォルダを分けてください。
 
@@ -232,6 +241,17 @@ AWS-SAP-ECサイト実践
 ```text
 Phase N
 ├─ 00 Phase N 目次.md
+├─ 10 教科書
+├─ 20 手順書
+├─ 30 学習記録
+└─ 40 トラブル記録
+```
+
+チケット予約実践はECサイトのPhaseへ入れず、独立Project内を次のように分けてください。
+
+```text
+AWS-SAP-チケット予約実践
+├─ 00 目次.md
 ├─ 10 教科書
 ├─ 20 手順書
 ├─ 30 学習記録
