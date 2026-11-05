@@ -82,7 +82,7 @@ async function listSeats(eventId) {
        FROM seats
       WHERE event_id = :event_id
       ORDER BY seat_label`,
-    [stringParameter("event_id", eventId)],
+    [uuidParameter("event_id", eventId)],
   );
   return rows(result);
 }
@@ -110,8 +110,8 @@ async function createReservation(input) {
           AND status = 'available'
       RETURNING id, seat_label, price_yen`,
       [
-        stringParameter("seat_id", input.seatId),
-        stringParameter("event_id", input.eventId),
+        uuidParameter("seat_id", input.seatId),
+        uuidParameter("event_id", input.eventId),
       ],
       transactionId,
     );
@@ -129,8 +129,8 @@ async function createReservation(input) {
          (:event_id, :seat_id, :customer_name, :idempotency_key, 'pending')
        RETURNING id, event_id, seat_id, customer_name, status, created_at`,
       [
-        stringParameter("event_id", input.eventId),
-        stringParameter("seat_id", input.seatId),
+        uuidParameter("event_id", input.eventId),
+        uuidParameter("seat_id", input.seatId),
         stringParameter("customer_name", input.customerName),
         stringParameter("idempotency_key", input.idempotencyKey),
       ],
@@ -147,7 +147,7 @@ async function createReservation(input) {
          ('reservation', :reservation_id, 'ReservationCreated',
           CAST(:payload AS jsonb))`,
       [
-        stringParameter("reservation_id", created.id),
+        uuidParameter("reservation_id", created.id),
         stringParameter("payload", JSON.stringify(created)),
       ],
       transactionId,
@@ -219,6 +219,12 @@ function rows(result) {
 // SQLへ文字列を安全に渡すNamed Parameter。文字列連結によるSQL Injectionを避ける。
 function stringParameter(name, value) {
   return { name, value: { stringValue: value } };
+}
+
+// UUID列へ文字列を渡す時は、Data APIへ型Hintも明示する。
+// HintがないstringValueはPostgreSQLでtext型になり、uuid列との比較が失敗する。
+function uuidParameter(name, value) {
+  return { name, value: { stringValue: value }, typeHint: "UUID" };
 }
 
 // API Gateway Lambda Proxy Integrationが期待するHTTP Response形式。
