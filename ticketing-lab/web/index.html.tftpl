@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Ticketing Lab</title>
+    <style>
+      :root { color-scheme: dark; font-family: system-ui, sans-serif; }
+      body { margin: 0; background: #0b1020; color: #edf2ff; }
+      main { width: min(960px, calc(100% - 32px)); margin: 48px auto; }
+      header { margin-bottom: 32px; }
+      h1 { margin-bottom: 8px; }
+      .muted { color: #9cadd0; }
+      .panel { background: #151d34; border: 1px solid #2c3858; border-radius: 18px; padding: 22px; }
+      .seats { display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 10px; }
+      button { border: 0; border-radius: 10px; padding: 12px; font-weight: 700; cursor: pointer; }
+      .available { background: #65d6a6; color: #07130e; }
+      .held, .sold { background: #38425d; color: #9cadd0; cursor: not-allowed; }
+      #message { min-height: 24px; margin-top: 18px; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header>
+        <p class="muted">AWS SAP architecture learning</p>
+        <h1>Ticketing Lab</h1>
+        <p id="event" class="muted">イベントを読み込んでいます。</p>
+      </header>
+      <section class="panel">
+        <h2>座席を選択</h2>
+        <div id="seats" class="seats"></div>
+        <p id="message"></p>
+      </section>
+    </main>
+    <script>
+      const api = ${jsonencode(api_url)};
+      let eventId;
+
+      async function load() {
+        const events = await fetch(api + "/events").then((r) => r.json());
+        const event = events.events[0];
+        if (!event) throw new Error("イベントがありません。DBを初期化してください。");
+        eventId = event.id;
+        document.querySelector("#event").textContent = event.name + " / " + event.venue;
+        await loadSeats();
+      }
+
+      async function loadSeats() {
+        const data = await fetch(api + "/events/" + eventId + "/seats").then((r) => r.json());
+        const container = document.querySelector("#seats");
+        container.replaceChildren(...data.seats.map((seat) => {
+          const button = document.createElement("button");
+          button.textContent = seat.seat_label + "\n¥" + seat.price_yen;
+          button.className = seat.status;
+          button.disabled = seat.status !== "available";
+          button.onclick = () => reserve(seat.id);
+          return button;
+        }));
+      }
+
+      async function reserve(seatId) {
+        const idempotencyKey = crypto.randomUUID();
+        const result = await fetch(api + "/reservations", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ eventId, seatId, customerName: "Lab User", idempotencyKey }),
+        });
+        const body = await result.json();
+        document.querySelector("#message").textContent = result.ok
+          ? "予約を受け付けました: " + body.id
+          : body.message;
+        await loadSeats();
+      }
+
+      load().catch((error) => {
+        document.querySelector("#message").textContent = error.message;
+      });
+    </script>
+  </body>
+</html>

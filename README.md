@@ -2,6 +2,8 @@
 
 AWS Solutions Architect Professionalレベルの設計判断を、実際に動くECサイトとAWS環境で学ぶプロジェクトです。
 
+新しいイベント駆動・同時実行の学習単位は、既存Commerce Labを壊さず[`ticketing-lab`](./ticketing-lab/README.md)へ分離しています。
+
 Phase 1では「動くが高可用ではない」基準構成を観察し、AWSリソースをCleanupしました。現在のBranchではPhase 3として、固定2 TaskとECS Service Auto Scalingを同じ負荷Profileで比較する構成を実装しています。
 
 ## 現在の状態
