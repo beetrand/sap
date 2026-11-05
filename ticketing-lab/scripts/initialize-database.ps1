@@ -11,12 +11,25 @@ $infraPath = Join-Path $projectRoot 'infra'
 $schemaPath = Join-Path $projectRoot 'sql\schema.sql'
 
 # ARNやDB名を手入力せず、Terraform Stateから取得して対象間違いを防ぐ。
-$clusterArn = terraform -chdir=$infraPath output -raw database_cluster_arn
-$secretArn = terraform -chdir=$infraPath output -raw database_secret_arn
-$databaseName = terraform -chdir=$infraPath output -raw database_name
+# 3回に分けて`terraform output -raw`を呼ぶと、どのCommandが失敗したか分からず、
+# `$LASTEXITCODE`も最後のCommandの結果しか表さない。そこでJSONを1回だけ取得する。
+$terraformOutputJson = terraform "-chdir=$infraPath" output -json
+if ($LASTEXITCODE -ne 0) {
+    throw "Terraform output command failed for: $infraPath"
+}
 
-if ($LASTEXITCODE -ne 0 -or -not $clusterArn -or -not $secretArn -or -not $databaseName) {
-    throw 'Terraform outputs could not be read. Apply the infrastructure first.'
+try {
+    $terraformOutputs = $terraformOutputJson | ConvertFrom-Json
+    $clusterArn = $terraformOutputs.database_cluster_arn.value
+    $secretArn = $terraformOutputs.database_secret_arn.value
+    $databaseName = $terraformOutputs.database_name.value
+}
+catch {
+    throw "Terraform outputs were returned, but could not be parsed: $($_.Exception.Message)"
+}
+
+if (-not $clusterArn -or -not $secretArn -or -not $databaseName) {
+    throw 'Required Terraform outputs are missing: database_cluster_arn, database_secret_arn, or database_name.'
 }
 
 # Data APIは1回に1 SQL Statementを送るため、専用CommentでSchemaを分割する。
