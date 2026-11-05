@@ -11,6 +11,6 @@ project_name          = "sap-ticketing"
 # 本番ではなく学習環境であることを名前へ含める。
 environment           = "lab"
 # 0 ACU Auto-pause対応Versionをapply前に東京Regionで確認する。
-aurora_engine_version = "16.6"
+aurora_engine_version = "16.15"
 # 費用Guard。変更時もvariables.tfにより4 ACU以下へ制限される。
 aurora_max_acu        = 2

@@ -39,7 +39,8 @@ variable "database_name" {
 variable "aurora_engine_version" {
   description = "0 ACU auto-pauseをサポートするAurora PostgreSQLのバージョン。apply前に東京リージョンで確認する。"
   type        = string
-  default     = "16.6"
+  # 2026-11-05に東京Regionでavailable、db.serverless、MinCapacity 0を確認済み。
+  default = "16.15"
 }
 
 variable "aurora_max_acu" {
