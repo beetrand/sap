@@ -476,8 +476,10 @@
           method: "POST", headers: { "content-type": "application/json" },
           body: JSON.stringify({ eventId: state.event.id, seatId: state.selected.id, customerName: el.customer.value.trim(), idempotencyKey: crypto.randomUUID() })
         });
-        showMessage("予約を受け付けました。受付番号: " + result.id.slice(0, 8).toUpperCase(), "success");
+        showMessage("予約を受け付けました。決済処理を待っています。受付番号: " + result.id.slice(0, 8).toUpperCase(), "success");
         state.selected = null;
+        await loadSeats();
+        await waitForReservation(result.id);
         await loadSeats();
       } catch (error) {
         showMessage(error.message, "error");
@@ -488,6 +490,34 @@
         renderSeats();
         renderSummary();
       }
+    }
+
+    // 予約APIはすぐpendingを返すため、非同期Workflowの最終状態を最大90秒Pollする。
+    async function waitForReservation(reservationId) {
+      for (let attempt = 0; attempt < 45; attempt += 1) {
+        await new Promise((resolve) => setTimeout(resolve, 2000));
+        try {
+          const reservation = await request("/reservations/" + encodeURIComponent(reservationId));
+          if (reservation.status === "confirmed") {
+            showMessage("予約が確定しました。決済・座席確保が完了しています。", "success");
+            return;
+          }
+          if (reservation.status === "failed") {
+            showMessage("決済が成立しなかったため、座席を解放しました。", "error");
+            return;
+          }
+          if (reservation.status === "refunded") {
+            showMessage("座席確定に失敗し、決済を返金しました。", "error");
+            return;
+          }
+          if (reservation.status === "refunding") {
+            showMessage("座席確定に失敗したため、返金処理中です。", "error");
+          }
+        } catch {
+          // Aurora再開中等の一時ErrorではPollを継続し、最終状態を取り直す。
+        }
+      }
+      showMessage("処理はまだ継続中です。しばらく後に状態を確認してください。", "success");
     }
 
     // 金額表示を日本円表記へ統一する。

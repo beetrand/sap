@@ -57,6 +57,17 @@ export async function handler(event) {
       return response(result.replayed ? 200 : 201, result);
     }
 
+    // 非同期決済の進行状況をBrowserがPollするための予約状態取得。
+    const reservationMatch = path.match(/^\/reservations\/([^/]+)$/);
+    if (method === "GET" && reservationMatch) {
+      const reservation = await getReservation(
+        decodeURIComponent(reservationMatch[1]),
+      );
+      return reservation
+        ? response(200, reservation)
+        : response(404, { message: "Reservation not found." });
+    }
+
     return response(404, { message: "Not found." });
   } catch (error) {
     // CloudWatch LogsでRequest失敗を追えるよう、共通地点で記録する。
@@ -198,6 +209,30 @@ async function findByIdempotencyKey(idempotencyKey) {
        FROM reservations
       WHERE idempotency_key = :idempotency_key`,
     [stringParameter("idempotency_key", idempotencyKey)],
+  );
+  return rows(result)[0] ?? null;
+}
+
+// Reservation、決済、返金、Mailの現在状態を1 Responseで返す。
+async function getReservation(reservationId) {
+  const result = await execute(
+    `SELECT r.id, r.status, r.customer_name, r.created_at, r.updated_at,
+            s.seat_label,
+            (SELECT p.status
+               FROM payments p
+              WHERE p.reservation_id = r.id AND p.operation_type = 'charge'
+              ORDER BY p.updated_at DESC LIMIT 1) AS payment_status,
+            (SELECT p.status
+               FROM payments p
+              WHERE p.reservation_id = r.id AND p.operation_type = 'refund'
+              ORDER BY p.updated_at DESC LIMIT 1) AS refund_status,
+            (SELECT e.status
+               FROM email_deliveries e
+              WHERE e.reservation_id = r.id) AS email_status
+       FROM reservations r
+       JOIN seats s ON s.id = r.seat_id
+      WHERE r.id = :reservation_id`,
+    [uuidParameter("reservation_id", reservationId)],
   );
   return rows(result)[0] ?? null;
 }

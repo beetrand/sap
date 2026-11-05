@@ -18,6 +18,8 @@ const seats = Array.from({ length: 20 }, (_, index) => ({
   price_yen: index < 5 ? 12000 : 8000,
   status: [6, 12, 16].includes(index) ? "held" : "available",
 }));
+// Mock予約もMemory上に保持し、非同期確定の画面PollをLocalで確認する。
+const reservations = new Map();
 
 createServer(async (request, response) => {
   // Previewでも本番APIに近いResponse Headerを返す。
@@ -50,8 +52,29 @@ createServer(async (request, response) => {
       return response.end(JSON.stringify({ message: "この座席はすでに予約されています。" }));
     }
     seat.status = "held";
+    const reservation = {
+      id: randomUUID(),
+      status: "pending",
+      seat_label: seat.seat_label,
+    };
+    reservations.set(reservation.id, reservation);
+    // Step Functionsの代わりに1秒後、決済とSeat確定が成功した状態へ進める。
+    setTimeout(() => {
+      reservation.status = "confirmed";
+      seat.status = "sold";
+    }, 1000);
     response.statusCode = 201;
-    return response.end(JSON.stringify({ id: randomUUID(), status: "pending" }));
+    return response.end(JSON.stringify(reservation));
+  }
+
+  const reservationMatch = request.url?.match(/^\/reservations\/([^/]+)$/);
+  if (request.method === "GET" && reservationMatch) {
+    const reservation = reservations.get(reservationMatch[1]);
+    if (!reservation) {
+      response.statusCode = 404;
+      return response.end(JSON.stringify({ message: "Reservation not found." }));
+    }
+    return response.end(JSON.stringify(reservation));
   }
 
   response.statusCode = 404;

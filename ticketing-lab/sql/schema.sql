@@ -65,6 +65,43 @@ CREATE INDEX IF NOT EXISTS idx_outbox_unpublished
   WHERE published_at IS NULL;
 -- statement-break
 
+-- Publisherが同じOutboxを安全にRetryするための管理Column。
+-- ADD COLUMN IF NOT EXISTSなので、既に作成済みDBへ再実行しても安全にMigrationできる。
+ALTER TABLE outbox_events
+  ADD COLUMN IF NOT EXISTS attempt_count integer NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS claimed_at timestamptz,
+  ADD COLUMN IF NOT EXISTS last_error text;
+-- statement-break
+
+-- 模擬決済と返金を、Retryされても一度だけ成功させるOperation Table。
+CREATE TABLE IF NOT EXISTS payments (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  reservation_id uuid NOT NULL REFERENCES reservations(id),
+  operation_type text NOT NULL CHECK (operation_type IN ('charge', 'refund')),
+  -- payment:{reservationId} / refund:{reservationId}を一意にする。
+  operation_key text NOT NULL UNIQUE,
+  status text NOT NULL
+    CHECK (status IN ('processing', 'retrying', 'succeeded', 'declined', 'failed')),
+  amount_yen integer NOT NULL CHECK (amount_yen >= 0),
+  attempt_count integer NOT NULL DEFAULT 0,
+  provider_reference text,
+  created_at timestamptz NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at timestamptz NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+-- statement-break
+
+-- Mailは注文Workflowから分離するが、成功・失敗・試行回数をSQLで観察できるよう記録する。
+CREATE TABLE IF NOT EXISTS email_deliveries (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  reservation_id uuid NOT NULL UNIQUE REFERENCES reservations(id),
+  status text NOT NULL CHECK (status IN ('sent', 'failed', 'queue_failed')),
+  attempt_count integer NOT NULL DEFAULT 0,
+  last_error text,
+  created_at timestamptz NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at timestamptz NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+-- statement-break
+
 -- 初回学習用Data。eventsが空の時だけ1 Eventと20 Seatを作るため再実行しても増殖しない。
 WITH new_event AS (
   INSERT INTO events (name, venue, starts_at)

@@ -54,3 +54,15 @@ variable "aurora_max_acu" {
     error_message = "ラボではaurora_max_acuを0.5以上4以下に制限します。"
   }
 }
+
+variable "outbox_schedule_state" {
+  description = "Outbox Publisherを毎分起動するSchedulerの状態。Schema更新前の誤起動を防ぐため既定はDISABLED。"
+  type        = string
+  default     = "DISABLED"
+
+  validation {
+    # AWS Schedulerが受け付ける2状態だけに限定する。
+    condition     = contains(["ENABLED", "DISABLED"], var.outbox_schedule_state)
+    error_message = "outbox_schedule_stateはENABLEDまたはDISABLEDを指定してください。"
+  }
+}
