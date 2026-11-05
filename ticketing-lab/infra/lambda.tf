@@ -76,8 +76,11 @@ resource "aws_lambda_function" "api" {
   timeout     = 30
   memory_size = 256
 
-  # 公開学習APIへの想定外の大量アクセスが、DB負荷と費用を押し上げるのを防ぐ。
-  reserved_concurrent_executions = 10
+  # Reserved Concurrencyは設定しない。
+  # このSandbox Accountでは、関数へ10枠を予約するとAccount共通の未予約枠を
+  # AWSが要求する最低10枠以上残せず、PutFunctionConcurrencyが失敗するためである。
+  # 想定外の大量AccessはAPI Gatewayの10 RPS / Burst 20で入口から抑え、
+  # Database側はAurora Serverless v2の最大2 ACUで費用上限を設ける。
 
   environment {
     # Terraformで作ったResource情報をCodeへ環境変数として渡す。
