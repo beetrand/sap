@@ -25,6 +25,13 @@ export async function handler(event) {
   const path = event.rawPath ?? "/";
 
   try {
+    // BrowserはJSONのPOST前に、CORS許可を確認するOPTIONS Requestを送る。
+    // `$default` RouteはOPTIONSもLambdaへ渡すため、2xxを明示的に返す。
+    // CORS Header自体はAPI Gatewayのcors_configurationが付与する。
+    if (method === "OPTIONS") {
+      return response(204, null);
+    }
+
     // DBを確認しないLiveness。LambdaとAPI Gatewayだけの生存確認に使う。
     if (method === "GET" && path === "/health") {
       return response(200, { status: "ok" });
