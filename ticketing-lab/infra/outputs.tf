@@ -46,6 +46,8 @@ output "cost_controls" {
     alb_created              = false
     rds_proxy_created        = false
     api_rate_limit_per_sec   = 10
-    lambda_concurrency_limit = 10
+    # Reserved Concurrencyは、このSandbox Accountの小さいQuotaでは設定できない。
+    # LambdaはAccount共通の未予約枠を使用し、入口のAPI Gatewayで10 RPSに制限する。
+    lambda_reserved_concurrency = "not configured (shared account quota)"
   }
 }
