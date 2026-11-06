@@ -10,12 +10,17 @@ import {
   uuidParameter,
   withTransaction,
 } from "./data-api.mjs";
+import { parsePublisherRequest } from "./workflow-domain.mjs";
 
 const stepFunctions = new SFNClient({});
 const stateMachineArn = process.env.STATE_MACHINE_ARN;
 
-export async function handler() {
-  const claimed = await claimEvents();
+export async function handler(input = {}) {
+  const request = parsePublisherRequest(input);
+  // API起動は指定1行だけ、Scheduler起動は未配信残件を最大10件Claimする。
+  const claimed = request.mode === "single"
+    ? await claimEvent(request.outboxId)
+    : await claimEvents();
   const results = [];
 
   for (const event of claimed) {
@@ -36,8 +41,34 @@ export async function handler() {
     }
   }
 
-  console.log(JSON.stringify({ event: "outbox_publish_completed", results }));
-  return { claimed: claimed.length, results };
+  console.log(
+    JSON.stringify({
+      event: "outbox_publish_completed",
+      mode: request.mode,
+      requestedOutboxId: request.outboxId,
+      results,
+    }),
+  );
+  return { mode: request.mode, claimed: claimed.length, results };
+}
+
+// 予約APIがCommit直後に渡したOutbox IDだけをLockして取得する通常経路。
+async function claimEvent(outboxId) {
+  return withTransaction(async (transactionId) => {
+    const selected = await execute(
+      `SELECT id, aggregate_id, event_type, payload::text AS payload_json
+         FROM outbox_events
+        WHERE id = :id
+          AND published_at IS NULL
+          AND (claimed_at IS NULL OR claimed_at < CURRENT_TIMESTAMP - INTERVAL '5 minutes')
+        FOR UPDATE SKIP LOCKED`,
+      [uuidParameter("id", outboxId)],
+      transactionId,
+    );
+    const events = rows(selected);
+    await markClaimed(events, transactionId);
+    return events;
+  });
 }
 
 // SKIP LOCKEDで同時Publisherが同じ行をClaimしないようにする。
@@ -55,21 +86,24 @@ async function claimEvents() {
       transactionId,
     );
     const events = rows(selected);
-
-    for (const event of events) {
-      await execute(
-        `UPDATE outbox_events
-            SET claimed_at = CURRENT_TIMESTAMP,
-                attempt_count = attempt_count + 1,
-                last_error = NULL
-          WHERE id = :id`,
-        [uuidParameter("id", event.id)],
-        transactionId,
-      );
-    }
-
+    await markClaimed(events, transactionId);
     return events;
   });
+}
+
+// Claim時刻と試行回数を同じTransaction内で記録する共通処理。
+async function markClaimed(events, transactionId) {
+  for (const event of events) {
+    await execute(
+      `UPDATE outbox_events
+          SET claimed_at = CURRENT_TIMESTAMP,
+              attempt_count = attempt_count + 1,
+              last_error = NULL
+        WHERE id = :id`,
+      [uuidParameter("id", event.id)],
+      transactionId,
+    );
+  }
 }
 
 async function startWorkflow(event) {

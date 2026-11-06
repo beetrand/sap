@@ -15,7 +15,8 @@ flowchart LR
     API --> DATA[RDS Data API]
     DATA --> A[(Aurora PostgreSQL<br/>Serverless v2)]
     API -->|Reservation + Outbox<br/>same transaction| A
-    SCH[EventBridge Scheduler<br/>default DISABLED] --> PUB[Outbox Publisher Lambda]
+    API -->|Commit後にOutbox IDを<br/>非同期Invoke| PUB[Outbox Publisher Lambda]
+    SCH[EventBridge Scheduler<br/>recovery / default DISABLED] --> PUB
     PUB --> A
     PUB --> SF[Step Functions Standard]
     SF --> PAY[Mock Payment Lambda]
@@ -38,13 +39,14 @@ flowchart LR
 - Auroraは`MinCapacity = 0`、無通信5分でauto-pauseする。
 - SQLの確認はRDS Query Editorを利用する。
 - 予約作成とOutbox追加を1トランザクションで行う。
-- Outbox Publisherが未配信EventをStep Functions Standardへ渡す。
+- 予約Commit直後、APIがOutbox IDをPublisherへ渡し、その1行を即時配信する。
+- Scheduler起動時のPublisherは、取り残された未配信Eventを最大10件回収する。
 - 決済後に座席確定が失敗した場合は、補償Transactionとして返金する。
 - Mailは注文結果から切り離し、失敗が3回続いたMessageはDLQへ隔離する。
 - 障害ModeはPublic APIではなくSSM Parameterから変更する。
 - 想定外の費用を抑えるため、APIは10 request/秒・Burst 20、Auroraは最大2 ACUに制限する。
 - Sandbox AccountのQuotaでは最低10の未予約Lambda枠を残せないため、Lambda Reserved Concurrencyは設定しない。
-- Outbox Schedulerは初期状態を`DISABLED`にする。DB Migrationと手動確認後だけ有効化する。
+- 回復用Outbox Schedulerは初期状態を`DISABLED`にする。DB Migrationと手動確認後だけ有効化する。
 
 ## できること
 
@@ -112,9 +114,9 @@ DBテーブルはapply後に次で初期化します。このスクリプトもD
 1. `outbox_schedule_state = "DISABLED"`のままplanとapplyを行う。
 2. `initialize-database.ps1`を実行し、追加Columnと2 Tableを作る。
 3. Simulation Modeを`success`にする。
-4. Publisherを1回だけ手動実行し、既存Outboxを確認する。
+4. Publisherを回復モードで1回だけ手動実行し、既存Outboxを確認する。
 5. Step Functions、SQL、SQS、CloudWatchで結果を観察する。
-6. 問題がなければ、必要な実験中だけSchedulerを`ENABLED`へ変更してapplyする。
+6. 問題がなければ、取りこぼし回復を試す実験中だけSchedulerを`ENABLED`へ変更してapplyする。
 
 ```powershell
 .\scripts\set-simulation-mode.ps1 -Mode success -AwsProfile sap-lab

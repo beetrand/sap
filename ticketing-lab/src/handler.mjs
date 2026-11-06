@@ -7,14 +7,18 @@ import {
   RDSDataClient,
   RollbackTransactionCommand,
 } from "@aws-sdk/client-rds-data";
+import { InvokeCommand, LambdaClient } from "@aws-sdk/client-lambda";
 import { parseReservation, ValidationError } from "./domain.mjs";
 
 // ClientはLambda Container再利用時にも使い回し、Requestごとの再生成を避ける。
 const client = new RDSDataClient({});
+// Reservation Commit後、指定Outbox 1行を即時配信するLambda Client。
+const lambdaClient = new LambdaClient({});
 // TerraformがLambda環境変数へ設定した接続先情報。
 const resourceArn = process.env.DB_CLUSTER_ARN;
 const secretArn = process.env.DB_SECRET_ARN;
 const database = process.env.DB_NAME;
+const publisherFunctionName = process.env.PUBLISHER_FUNCTION_NAME;
 
 // すべてのData API Commandに共通する3項目。
 const baseRequest = { resourceArn, secretArn, database };
@@ -158,23 +162,29 @@ async function createReservation(input) {
     // 後でStep Functions等を開始するEventを、予約と同じTransaction内に保存する。
     // DB Commit後にEventだけ失う問題を避けるOutbox Patternである。
     const created = rows(reservation)[0];
-    await execute(
+    const outbox = await execute(
       `INSERT INTO outbox_events
          (aggregate_type, aggregate_id, event_type, payload)
        VALUES
          ('reservation', :reservation_id, 'ReservationCreated',
-          CAST(:payload AS jsonb))`,
+          CAST(:payload AS jsonb))
+       RETURNING id`,
       [
         uuidParameter("reservation_id", created.id),
         stringParameter("payload", JSON.stringify(created)),
       ],
       transactionId,
     );
+    const outboxId = rows(outbox)[0].id;
 
     // 3つのDB変更がすべて成功したので確定する。
     await client.send(
       new CommitTransactionCommand({ ...baseRequest, transactionId }),
     );
+
+    // Invoke失敗でもCommit済みOutboxは残るため、予約を失敗に戻さない。
+    // SchedulerのRecovery Scanが後から同じOutboxを回収する。
+    await nudgePublisher(outboxId);
     return { ...created, replayed: false };
   } catch (error) {
     // 途中で失敗した場合、座席だけheldになる等の半端な状態を元へ戻す。
@@ -200,6 +210,32 @@ async function createReservation(input) {
       if (existingAfterRace) return { ...existingAfterRace, replayed: true };
     }
     throw error;
+  }
+}
+
+// InvocationType EventはPublisher完了を待たず、AWSに非同期実行を依頼して戻る。
+async function nudgePublisher(outboxId) {
+  try {
+    await lambdaClient.send(
+      new InvokeCommand({
+        FunctionName: publisherFunctionName,
+        InvocationType: "Event",
+        Payload: new TextEncoder().encode(JSON.stringify({ outboxId })),
+      }),
+    );
+    console.log(
+      JSON.stringify({ event: "outbox_publisher_nudged", outboxId }),
+    );
+  } catch (error) {
+    // ReservationとOutboxはCommit済み。Recovery可能なのでAPIは成功を返す。
+    console.error(
+      JSON.stringify({
+        event: "outbox_publisher_nudge_failed",
+        outboxId,
+        name: error?.name,
+        message: error?.message,
+      }),
+    );
   }
 }
 

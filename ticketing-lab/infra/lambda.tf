@@ -28,7 +28,7 @@ resource "aws_iam_role_policy_attachment" "api_logs" {
 }
 
 # Permission Policyは、Roleを引き受けたLambdaが何をしてよいかを定義する。
-# Data APIのTransaction操作と、このAuroraのSecret読取だけに限定する。
+# Data API、Aurora Secret、即時配信用Publisher Invokeだけに限定する。
 resource "aws_iam_role_policy" "api_database" {
   name = "data-api-and-secret"
   role = aws_iam_role.api.id
@@ -51,6 +51,12 @@ resource "aws_iam_role_policy" "api_database" {
         Effect   = "Allow"
         Action   = "secretsmanager:GetSecretValue"
         Resource = aws_rds_cluster.main.master_user_secret[0].secret_arn
+      },
+      {
+        # 予約Commit後に、今回のPublisherだけを非同期起動できる。
+        Effect   = "Allow"
+        Action   = "lambda:InvokeFunction"
+        Resource = aws_lambda_function.publisher.arn
       }
     ]
   })
@@ -88,6 +94,8 @@ resource "aws_lambda_function" "api" {
       DB_CLUSTER_ARN = aws_rds_cluster.main.arn
       DB_SECRET_ARN  = aws_rds_cluster.main.master_user_secret[0].secret_arn
       DB_NAME        = var.database_name
+      # APIがOutbox IDを渡して即時起動するPublisherのFunction名。
+      PUBLISHER_FUNCTION_NAME = aws_lambda_function.publisher.function_name
     }
   }
 
