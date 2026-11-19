@@ -103,7 +103,7 @@ terraform -chdir=infra plan "-out=ticketing.tfplan"
 terraform -chdir=infra apply .\ticketing.tfplan
 ```
 
-DBテーブルはapply後に次で初期化します。このスクリプトもDBを変更するため、自動実行しません。
+今回のDB変更は既存Applicationを壊さない追加Migrationなので、新Lambda Codeをapplyする前に実行します。このスクリプトもDBを変更するため、自動実行しません。
 
 ```powershell
 .\scripts\initialize-database.ps1 -AwsProfile sap-lab
@@ -111,12 +111,13 @@ DBテーブルはapply後に次で初期化します。このスクリプトもD
 
 初回の安全な順番は次のとおりです。
 
-1. `outbox_schedule_state = "DISABLED"`のままplanとapplyを行う。
-2. `initialize-database.ps1`を実行し、追加Columnと2 Tableを作る。
-3. Simulation Modeを`success`にする。
-4. Publisherを回復モードで1回だけ手動実行し、既存Outboxを確認する。
-5. Step Functions、SQL、SQS、CloudWatchで結果を観察する。
-6. 問題がなければ、取りこぼし回復を試す実験中だけSchedulerを`ENABLED`へ変更してapplyする。
+1. `outbox_schedule_state = "DISABLED"`のままplanを確認する。
+2. `initialize-database.ps1`を実行し、追加Columnと2 Tableを先に作る。
+3. 確認済みplanをapplyし、新Lambda CodeとWorkflowを反映する。
+4. Simulation Modeを`success`にする。
+5. Publisherを回復モードで1回だけ手動実行し、既存Outboxを確認する。
+6. Step Functions、SQL、SQS、CloudWatchで結果を観察する。
+7. 問題がなければ、取りこぼし回復を試す実験中だけSchedulerを`ENABLED`へ変更してapplyする。
 
 ```powershell
 .\scripts\set-simulation-mode.ps1 -Mode success -AwsProfile sap-lab
